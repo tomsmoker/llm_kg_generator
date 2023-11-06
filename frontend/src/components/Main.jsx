@@ -1,0 +1,157 @@
+import React, { useState } from 'react';
+import {
+  Input,
+  InputGroup,
+  VStack,
+  HStack,
+  Text,
+  Spinner,
+  Heading,
+  Box
+} from "@chakra-ui/react";
+import GraphVisualisation from './GraphVisualisation';
+
+export default function ManageGraphs() {
+  
+  // State for input values and UI feedback
+  const [createInput, setCreateInput] = useState('');
+  const [updateInput, setUpdateInput] = useState('');
+  const [queryInput, setQueryInput] = useState('');
+  const [graphMessage, setGraphMessage] = useState('');
+  const [showGraph, setShowGraph] = useState(false);
+  const [refreshGraphKey, setRefreshGraphKey] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Base API URL (could be moved to environment variable or config for flexibility)
+  const API_BASE_URL = "http://localhost:8000/";
+
+  // Handle graph creation from link
+  const createGraphLink = async (e) => {
+    e.preventDefault();
+    handleGraphRequest("create_graph_from_link", createInput, setCreateInput);
+  };
+
+  // Handle graph update from link
+  const updateGraphLink = async (e) => {
+    e.preventDefault();
+    handleGraphRequest("update_graph_from_link", updateInput, setUpdateInput);
+  };
+
+  // Common function to handle graph operations
+  const handleGraphRequest = async (endpoint, input, setInputState) => {
+    setGraphMessage("");
+    setShowGraph(false);
+    setIsLoading(true);
+
+    try {
+      await fetch(`${API_BASE_URL}${endpoint}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ concept: input })
+      });
+      setIsLoading(false);
+      setShowGraph(true);
+      setInputState('');
+      setRefreshGraphKey(prevKey => prevKey + 1);
+    } catch (error) {
+      console.error(`Failed to ${endpoint}:`, error);
+    }
+  };
+
+  // Handle graph query
+  const queryGraph = async (e) => {
+    e.preventDefault();
+    setShowGraph(true);
+    if (!showGraph) {
+      setGraphMessage("No graph is currently displayed.");
+      return;
+    }
+  
+    try {
+      setIsLoading(true);
+      const response = await fetch(`${API_BASE_URL}query_graph`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: queryInput })
+      });
+      const data = await response.json();
+      setIsLoading(false);
+      setGraphMessage(data.data);
+      setQueryInput('');
+      setRefreshGraphKey(prevKey => prevKey + 1);
+    } catch (error) {
+      console.error("Failed to update graph:", error);
+    }
+  };
+
+  return (
+    <VStack spacing={8} width="100%" padding="3rem" align="center">
+  
+      <Heading as="h1" size="xl">Academic Knowledge Graph Generator</Heading>
+  
+      <HStack spacing={8} width="100%">
+  
+        {/* Graph operations: create, update, query */}
+        <VStack spacing={8} width="50%">
+
+          {/* Create Graph */}
+          <Box borderWidth="1px" borderRadius="lg" padding="4" shadow="md">
+            <Heading as="h4" size="md" marginBottom="2">Create Graph with Arxiv Link</Heading>
+            <form onSubmit={createGraphLink}>
+              <InputGroup>
+                <Input
+                  placeholder="Enter URL"
+                  value={createInput}
+                  onChange={(e) => setCreateInput(e.target.value)}
+                />
+              </InputGroup>
+            </form>
+          </Box>
+
+          {/* Update Graph */}
+          <Box borderWidth="1px" borderRadius="lg" padding="4" shadow="md">
+            <Heading as="h4" size="md" marginBottom="2">Update Graph with Arxiv Link</Heading>
+            <form onSubmit={updateGraphLink}>
+              <InputGroup>
+                <Input
+                  placeholder="Enter URL"
+                  value={updateInput}
+                  onChange={(e) => setUpdateInput(e.target.value)}
+                />
+              </InputGroup>
+            </form>
+          </Box>
+
+          {/* Query Graph */}
+          <Box borderWidth="1px" borderRadius="lg" padding="4" shadow="md">
+            <Heading as="h4" size="md" marginBottom="2">Query Graph</Heading>
+            <form onSubmit={queryGraph}>
+              <InputGroup>
+                <Input
+                  placeholder="Enter query"
+                  value={queryInput}
+                  onChange={(e) => setQueryInput(e.target.value)}
+                />
+              </InputGroup>
+            </form>
+          </Box>
+  
+          {/* Feedback messages */}
+          {graphMessage && <Text fontSize="lg" fontWeight="semibold" color="black">{graphMessage}</Text>}
+          {isLoading && <Spinner size="xl" />}
+  
+        </VStack>
+  
+        {/* Graph Visualization */}
+        {showGraph && (
+          <Box width="80%">
+            <Heading as="h4" size="md" marginBottom="2">Hover over nodes for heirarchical schema</Heading>
+            <small fontSize="8pt">Information is generated by LLMs, so is not guaranteed to be accurate</small>
+            <GraphVisualisation key={refreshGraphKey} />
+          </Box>
+        )}
+        
+      </HStack>
+    </VStack>
+  );
+}
